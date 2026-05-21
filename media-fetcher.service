@@ -5,18 +5,18 @@ After=network.target
 [Service]
 Type=simple
 User=www-data
-WorkingDirectory=/opt/floor555
-ExecStart=/opt/floor555/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
+WorkingDirectory=/var/www/floor555.gotunda.com
+ExecStart=/var/www/floor555.gotunda.com/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
 Restart=on-failure
 RestartSec=5
-Environment="PATH=/opt/floor555/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PATH=/var/www/floor555.gotunda.com/.venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="XDG_CONFIG_HOME=/tmp" "XDG_CACHE_HOME=/tmp" "XDG_DATA_HOME=/tmp"
 
 # Harden the process
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=/opt/floor555/downloads
+ReadWritePaths=/var/www/floor555.gotunda.com/downloads
 
 [Install]
 WantedBy=multi-user.target
