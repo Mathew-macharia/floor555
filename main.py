@@ -13,9 +13,9 @@ import uuid
 from pathlib import Path
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, field_validator
 
@@ -43,6 +43,7 @@ YOUTUBE_FORMATS = {
 ALLOWED_URL_PREFIXES = (
     "https://www.youtube.com/",
     "https://youtube.com/",
+    "https://m.youtube.com/",
     "https://youtu.be/",
     "https://music.youtube.com/",
     "https://open.spotify.com/",
@@ -249,12 +250,14 @@ async def youtube_info(req: YoutubeInfoRequest):
 
 @app.post("/api/youtube/download")
 async def youtube_download(req: YoutubeDownloadRequest):
-    target = validate_subfolder("youtube")
+    job_id = new_job()
+    target = DOWNLOAD_ROOT / job_id
+    target.mkdir(parents=True, exist_ok=True)
+    
     format_args = YOUTUBE_FORMATS[req.format]
 
-    job_id = new_job()
     log(job_id, f"[system] Starting YouTube download — format: {req.format}")
-    log(job_id, f"[system] Output folder: downloads/youtube")
+    log(job_id, f"[system] Output folder: isolated job space")
 
     cmd = ["yt-dlp", *format_args, "--newline", "--progress"]
 
@@ -326,12 +329,13 @@ async def spotify_info(req: SpotifyInfoRequest):
 
 @app.post("/api/spotify/download")
 async def spotify_download(req: SpotifyDownloadRequest):
-    target = validate_subfolder("spotify")
-
     job_id = new_job()
+    target = DOWNLOAD_ROOT / job_id
+    target.mkdir(parents=True, exist_ok=True)
+
     log(job_id, "[system] Starting Spotify download via spotdl")
     log(job_id, f"[system] Downloading {len(req.urls)} track(s)")
-    log(job_id, f"[system] Output folder: downloads/spotify")
+    log(job_id, f"[system] Output folder: isolated job space")
 
     cmd = [
         "spotdl",
@@ -393,7 +397,42 @@ async def cancel_job(job_id: str):
     return {"cancelled": True}
 
 
+import shutil
+
+def cleanup_job(job_dir: Path, zip_path: Path = None):
+    try:
+        if job_dir.exists():
+            shutil.rmtree(job_dir)
+        if zip_path and zip_path.exists():
+            zip_path.unlink()
+    except Exception:
+        pass
+
+@app.get("/api/job/{job_id}/download")
+async def download_job(job_id: str, background_tasks: BackgroundTasks):
+    job_dir = DOWNLOAD_ROOT / job_id
+    if not job_dir.exists():
+        raise HTTPException(status_code=404, detail="Job files not found or already downloaded.")
+    
+    files = [f for f in job_dir.iterdir() if f.is_file()]
+    if not files:
+        raise HTTPException(status_code=404, detail="No files found.")
+    
+    if len(files) == 1:
+        file_path = files[0]
+        background_tasks.add_task(cleanup_job, job_dir)
+        return FileResponse(file_path, filename=file_path.name)
+    else:
+        zip_path = DOWNLOAD_ROOT / f"{job_id}.zip"
+        import zipfile
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for f in files:
+                zipf.write(f, f.name)
+        
+        background_tasks.add_task(cleanup_job, job_dir, zip_path)
+        return FileResponse(zip_path, filename=f"Floor555_Playlist_{job_id}.zip")
+
+
 @app.get("/")
 async def root():
-    from fastapi.responses import FileResponse
     return FileResponse(BASE_DIR / "static" / "index.html")

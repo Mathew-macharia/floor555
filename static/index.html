@@ -769,7 +769,12 @@
       body: JSON.stringify(body),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+    if (!res.ok) {
+      if (Array.isArray(data.detail)) {
+        throw new Error(data.detail.map(e => e.msg).join(', '));
+      }
+      throw new Error(data.detail || `HTTP ${res.status}`);
+    }
     return data;
   }
 
@@ -786,6 +791,10 @@
         state[p].es = null;
         setStatus(p, msg.returncode === 0 ? 'done' : `error (${msg.returncode})`);
         setDownloading(p, false);
+        if (msg.returncode === 0) {
+          appendLine(el, '[system] Download ready! Transferring to your machine...', 'ok');
+          window.location.href = `/api/job/${jobId}/download`;
+        }
       }
     };
     es.onerror = () => {
