@@ -10,7 +10,7 @@ ExecStart=/var/www/floor555.gotunda.com/.venv/bin/uvicorn main:app --host 127.0.
 Restart=on-failure
 RestartSec=5
 Environment="PATH=/var/www/floor555.gotunda.com/.venv/bin:/usr/local/bin:/usr/bin:/bin"
-Environment="XDG_CONFIG_HOME=/tmp" "XDG_CACHE_HOME=/tmp" "XDG_DATA_HOME=/tmp"
+Environment="XDG_CONFIG_HOME=/tmp" "XDG_CACHE_HOME=/tmp" "XDG_DATA_HOME=/tmp" "HOME=/tmp"
 
 # Harden the process
 NoNewPrivileges=true
