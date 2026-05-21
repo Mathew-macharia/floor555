@@ -1,0 +1,21 @@
+[Unit]
+Description=Floor555
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/floor555
+ExecStart=/opt/floor555/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5
+Environment="PATH=/opt/floor555/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+
+# Harden the process
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/floor555/downloads
+
+[Install]
+WantedBy=multi-user.target
